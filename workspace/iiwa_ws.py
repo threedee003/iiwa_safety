@@ -12,7 +12,7 @@ from configs.workspace import iiwaSceneCfg
 
 
 axes_geom = gymutil.AxesGeometry(0.1)
-ROOT = "/home/bikram/Documents/isaacgym/assets"
+
 
 
 class iiwaScene:
@@ -69,7 +69,7 @@ class iiwaScene:
 
             self.asset_options.fix_base_link = True
             self.asset_options.disable_gravity = True
-            robot_ = self.gym.load_asset(self.sim, ROOT, iiwa_urdf, self.asset_options)
+            robot_ = self.gym.load_asset(self.sim, cfg.robot.ROOT, iiwa_urdf, self.asset_options)
             robot_props = self.gym.get_asset_dof_properties(robot_)
             robot_props["driveMode"][7:].fill(cfg.gripper.driveMode)
             robot_props["stiffness"][7:].fill(cfg.gripper.stiffness)
@@ -92,23 +92,27 @@ class iiwaScene:
                   robot_props['friction'][:7].fill(cfg.velocity_control.friction)
 
 
-            
-            if spawn_cube:
-                  cube_ = self._create_cube(cube_pos=cfg.task.cube_pos)
+
 
 
             # creating viewer
             self.viewer = self.gym.create_viewer(self.sim, gymapi.CameraProperties())
+
+            
             spacing = cfg.env.spacing
             env_lower = gymapi.Vec3(-spacing, -spacing, 0.0)
             env_upper = gymapi.Vec3(spacing, spacing, spacing)
             self.env = self.gym.create_env(self.sim, env_lower, env_upper, 1) 
 
+            self.gym.viewer_camera_look_at(self.viewer,
+                                           self.env,
+                                           cfg.viewerCamera.cam_loc,
+                                           cfg.viewerCamera.look_at 
+                                          )
+
+
+
             pose = gymapi.Transform()
-
-
-
-
             pose.p = cfg.robot.iiwa_pos
 
             self.robot_handle = self.gym.create_actor(self.env, robot_, pose, "robot", 0, 0)
@@ -123,20 +127,11 @@ class iiwaScene:
 
             
 
-            
-            if spawn_cube:
-                  self.cube_handle = self.gym.create_actor(self.env, cube_, self.cube_pose, "cube", 0, 0)
-                  self.gym.set_rigid_body_color(self.env, self.cube_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, self.cube_color)
-                  cube_props = self.gym.get_actor_rigid_shape_properties(self.env, self.cube_handle)
-                  cube_props[0].friction = 0.3
-                  table_props[0].rolling_friction = 0.3
-                  table_props[0].torsion_friction = 0.3
-                  self.gym.set_actor_rigid_shape_properties(self.env, self.cube_handle, cube_props)
+
             
             self.gym.set_actor_dof_properties(self.env, self.robot_handle, robot_props)
-            # self.gym.set_actor_dof_properties(self.env, self.cabinet_handle, cabinet_props)
-            self.robot_origin = np.array([12.0, 5.0, 0.7])
-            self.robot_quat = np.array([0, 0, 0.7068252, 0.7073883])
+            self.robot_origin = cfg.robot.iiwa_pos_vector
+            self.robot_quat = cfg.robot.iiwa_quat_vector
 
 
       def compute_reward(self):
@@ -168,9 +163,8 @@ class iiwaScene:
 
       
       def reach_jt_position(self, desired_jt: np.ndarray, hack: np.ndarray = None):
-            '''
-            hack is for testbed_demos when using this function to make it look like rl control
-            '''
+            
+            
             kp = 4.
             kd = 1.
             assert self.control_type == 'velocity', f"only for velocity control"
@@ -260,24 +254,7 @@ class iiwaScene:
             q_r = quat_mul(desired, cc)
             return q_r[:, 0:3] * torch.sign(q_r[:, 3]).unsqueeze(-1)
 
-      def _create_table_(self):
-            table_dims = gymapi.Vec3(0.8, 1.5, 0.04)
-            self.table_pose = gymapi.Transform()
-            self.table_pose.p = gymapi.Vec3(0, 0.5 * table_dims.y + 4.3, 0.7)
-            self.asset_options.thickness = 1
-            self.asset_options.armature = 0.001
-            table_ = self.gym.create_box(self.sim, table_dims.x, table_dims.y, table_dims.z, self.asset_options)
-            return table_
-      
-      def _create_cube(self, cube_pos):
-            cube_size = 0.05
-            self.cube_color = gymapi.Vec3(np.random.uniform(0,1), np.random.uniform(0,1), np.random.uniform(0,1))
-            self.cube_pose = gymapi.Transform()
-            self.cube_pose.p = gymapi.Vec3(cube_pos[0], cube_pos[1], cube_pos[2])
-            self.asset_options.thickness = 0.002
-            self.asset_options.fix_base_link = False
-            cube_ = self.gym.create_box(self.sim, cube_size, cube_size, cube_size, self.asset_options)
-            return cube_
+
       
       def get_viewer(self):
             return self.viewer

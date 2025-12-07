@@ -4,11 +4,12 @@ from isaacgym import gymapi
 
 
 def run():
-
-      scene = iiwaScene(spawn_table=True,  spawn_cube=False, control_type='velocity')
+      act = 7 * [0.]
+      act[3] = 1.1
+      scene = iiwaScene(spawn_table=True,  spawn_cube=False, control_type='position')
       while scene.viewer_running():
             scene.step()
-
+            scene.apply_arm_action(action = act)
 
 
       scene.__del__()
